@@ -509,6 +509,27 @@ class ProoflineClient(Operations):
         finally:
             _transport.DEADLINE.reset(deadline)
 
+    def request_and_wait_for_review(
+        self,
+        organization_id: UUID,
+        repository_id: UUID,
+        pull_request_number: int,
+        *,
+        body: RunNowRequest | Unset = UNSET,
+        timeout: float = 300,
+    ) -> ReviewOutcome:
+        """Request a review of a pull request and wait until it completes.
+
+        A refused request raises ProoflineError; a timeout returns a TIMED_OUT
+        outcome carrying the last recorded review, if any.
+        """
+        if not math.isfinite(timeout) or timeout < 0:
+            raise ValueError("The review timeout must be a finite nonnegative number of seconds.")
+        response = self.request_review(
+            organization_id, repository_id, pull_request_number, body=body
+        )
+        return self.wait_for_review(organization_id, response.review_id, timeout=timeout)
+
 
 class AsyncProoflineClient(AsyncOperations):
     def __init__(
@@ -856,3 +877,24 @@ class AsyncProoflineClient(AsyncOperations):
             return outcome(last, url, "TIMED_OUT") or ReviewOutcome("TIMED_OUT", url)
         finally:
             _transport.DEADLINE.reset(deadline)
+
+    async def request_and_wait_for_review(
+        self,
+        organization_id: UUID,
+        repository_id: UUID,
+        pull_request_number: int,
+        *,
+        body: RunNowRequest | Unset = UNSET,
+        timeout: float = 300,
+    ) -> ReviewOutcome:
+        """Request a review of a pull request and wait until it completes.
+
+        A refused request raises ProoflineError; a timeout returns a TIMED_OUT
+        outcome carrying the last recorded review, if any.
+        """
+        if not math.isfinite(timeout) or timeout < 0:
+            raise ValueError("The review timeout must be a finite nonnegative number of seconds.")
+        response = await self.request_review(
+            organization_id, repository_id, pull_request_number, body=body
+        )
+        return await self.wait_for_review(organization_id, response.review_id, timeout=timeout)
